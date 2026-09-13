@@ -6,8 +6,7 @@ on. Everything here reads files on disk; it makes no API calls.
 
     python code/evaluation/build_evaluation_md.py
 
-Writes the same content to code/docs/EVALUATION.md and
-code/evaluation/EVALUATION.md.
+Writes the same content to docs/EVALUATION.md and code/evaluation/EVALUATION.md.
 """
 
 import argparse
@@ -349,7 +348,7 @@ def _limits_section(verdicts, calibration):
         "sensitivity to defects chosen in advance, not to unknown ones.",
         "- **Sample agreement is 25 rows.** Differences of one or two rows are "
         "noise, and the remaining gaps there are forecast-threshold effects "
-        "rather than rule errors - see `code/docs/HARNESS.md`.",
+        "rather than rule errors - see `docs/HARNESS.md`.",
         "",
     ]
     return lines
@@ -393,7 +392,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     text = build(args.dataset)
-    targets = args.targets or [CODE_ROOT / "docs" / "EVALUATION.md",
+    targets = args.targets or [CODE_ROOT.parent / "docs" / "EVALUATION.md",
                                CODE_ROOT / "evaluation" / "EVALUATION.md"]
     for target in targets:
         Path(target).parent.mkdir(parents=True, exist_ok=True)

@@ -212,7 +212,7 @@ Two evaluations, answering different questions.
 | Costs tokens | only with `--model` | yes, on both stages |
 
 Results for both live in [evaluation/EVALUATION.md](evaluation/EVALUATION.md)
-(identical copy at `code/docs/EVALUATION.md`), regenerated from the run artifacts with
+(identical copy at `docs/EVALUATION.md`), regenerated from the run artifacts with
 `python code/evaluation/build_evaluation_md.py` so the numbers cannot drift from
 the runs they describe.
 
@@ -250,16 +250,13 @@ python code/smoke_tools.py
 
 ## Design notes
 
-Background written while building this, now alongside the code:
-
 | Document | Contents |
 |---|---|
-| [docs/HARNESS.md](docs/HARNESS.md) | What is deterministic and what is not, the six forecast defects the calibration found, and what still disagrees |
-| [docs/DATASET.md](docs/DATASET.md) | What one request can retrieve, field by field, and what has to be reconstructed |
-| [docs/SAMPLE.md](docs/SAMPLE.md) | Every supplied sample answer, read closely |
-| [docs/SAMPLE_ANALYSIS.md](docs/SAMPLE_ANALYSIS.md) | The decision hierarchy the samples imply |
-| [docs/scam_and_tampering.md](docs/scam_and_tampering.md) | Every supplied image, what it establishes, and where it cannot be trusted |
-| [docs/EVALUATION.md](docs/EVALUATION.md) | Both evaluations and their results |
+| [../docs/EXPLANATION.md](../docs/EXPLANATION.md) | What the system is and why it is split this way |
+| [../docs/E2E.md](../docs/E2E.md) | What runs, in what order, and what it writes |
+| [../docs/DESIGN_DECISIONS.md](../docs/DESIGN_DECISIONS.md) | Every non-obvious choice and its alternative |
+| [../docs/EVALUATION.md](../docs/EVALUATION.md) | Results of both evaluations |
+| [../docs/](../docs/README.md) | Deeper background: dataset, samples, images, harness |
 
 ## Other entry points
 

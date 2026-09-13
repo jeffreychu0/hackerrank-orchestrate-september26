@@ -1,10 +1,10 @@
 # Understanding the 25 sample answers
 
-This document explains my reading of every supplied answer in [dataset/sample_requests.csv](../../dataset/sample_requests.csv). It distinguishes directly checkable facts (preferences, payment schedules, fees, image amounts, and permitted changes) from the sample's numerical forecast results. I have not independently reproduced every daily balance or the exact safe-payment amounts. Where a date or amount needs an unstated recurrence choice or ambiguous evidence, I call that out rather than inventing a derivation.
+This document explains my reading of every supplied answer in [dataset/sample_requests.csv](../dataset/sample_requests.csv). It distinguishes directly checkable facts (preferences, payment schedules, fees, image amounts, and permitted changes) from the sample's numerical forecast results. I have not independently reproduced every daily balance or the exact safe-payment amounts. Where a date or amount needs an unstated recurrence choice or ambiguous evidence, I call that out rather than inventing a derivation.
 
 ## How the combined CSV is laid out
 
-The first **eight columns** have the [requests.csv](../../dataset/requests.csv) layout:
+The first **eight columns** have the [requests.csv](../dataset/requests.csv) layout:
 
 ```text
 request_id,user_id,request_date,request_type,requested_amount,desired_completion_date,allows_partial_payment,request_text
@@ -16,7 +16,7 @@ The remaining **seven columns** are the answer fields:
 amount_safe_to_pay,affordability_status,recommended_payment_method,payment_plan,earliest_date_for_full_payment,spending_changes_needed,decision_explanation
 ```
 
-An [output.csv](../../dataset/output.csv) row has eight columns: the same request_id followed by those seven answer fields. The combined sample file contains request_id once, giving 15 columns altogether. It contains request_01 through request_25; these are public examples, distinct from the 250 evaluation requests.
+An [output.csv](../dataset/output.csv) row has eight columns: the same request_id followed by those seven answer fields. The combined sample file contains request_id once, giving 15 columns altogether. It contains request_01 through request_25; these are public examples, distinct from the 250 evaluation requests.
 
 ## Reading the answers correctly
 
@@ -28,7 +28,7 @@ An [output.csv](../../dataset/output.csv) row has eight columns: the same reques
 - The request, profile, and option must all permit the method. An offered installment plan is not automatically eligible. Preference restrictions explain several apparently more expensive answers.
 - Changes to a historical event ID identify its future recurring expense; they are not refunds of already-settled transactions. Pending credits and unrealized investments are not available cash.
 
-The tables below preserve every request field and every answer field, in source order. `empty` represents an empty CSV field. Financial context comes from [profiles](../../dataset/financial_profiles.csv), [events](../../dataset/financial_events.csv), [payment options](../../dataset/request_payment_options.csv), [messages](../../dataset/messages.csv), [image mappings](../../dataset/images.csv), and [dated exchange rates](../../dataset/exchange_rates.csv), interpreted using [problem_statement.md](../../problem_statement.md).
+The tables below preserve every request field and every answer field, in source order. `empty` represents an empty CSV field. Financial context comes from [profiles](../dataset/financial_profiles.csv), [events](../dataset/financial_events.csv), [payment options](../dataset/request_payment_options.csv), [messages](../dataset/messages.csv), [image mappings](../dataset/images.csv), and [dated exchange rates](../dataset/exchange_rates.csv), interpreted using [problem_statement.md](../problem_statement.md).
 
 ## Sample overview
 
