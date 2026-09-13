@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import evaluate_samples
-from harness.config import DEFAULT_DATASET
+from harness.config import DEFAULT_DATASET, REPORTS_DIR
 from harness.providers import PROVIDERS
 
 FIELDS = ("amount_safe_to_pay", "affordability_status", "recommended_payment_method",
@@ -57,8 +57,7 @@ def main(argv=None):
     truth = load(args.dataset / "sample_requests.csv")
     results, usages = {}, {}
     for provider in args.providers:
-        path = (args.dataset.parent / "code" / "evaluation"
-                / "sample_predictions_{}.csv".format(provider))
+        path = REPORTS_DIR / "sample_predictions_{}.csv".format(provider)
         if not args.reuse:
             print("=" * 72)
             print("running {}".format(provider))

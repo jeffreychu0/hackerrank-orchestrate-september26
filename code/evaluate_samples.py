@@ -14,7 +14,8 @@ import csv
 from decimal import Decimal
 from pathlib import Path
 
-from harness.config import DEFAULT_DATASET, DEFAULT_PROVIDER, HarnessConfig
+from harness.config import (DEFAULT_DATASET, DEFAULT_PROVIDER, REPORTS_DIR,
+                            HarnessConfig)
 from harness.providers import PROVIDERS
 from harness.runner import Harness
 
@@ -37,8 +38,7 @@ def main(argv=None):
     truth = {row["request_id"]: row for row in
              csv.DictReader((args.dataset / "sample_requests.csv").open(encoding="utf-8-sig"))}
     tag = args.provider if args.model else "deterministic"
-    scratch = args.out or (args.dataset.parent / "code" / "evaluation"
-                           / "sample_predictions_{}.csv".format(tag))
+    scratch = args.out or (REPORTS_DIR / "sample_predictions_{}.csv".format(tag))
     config = HarnessConfig(
         dataset=args.dataset, output=scratch,
         usage_report=scratch.with_name("sample_usage_{}.md".format(tag)),

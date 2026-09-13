@@ -200,6 +200,25 @@ Current agreement with the 25 published answers:
 | All five fields exact | 18/25 | 19/25 |
 | Mean relative error on `amount_safe_to_pay` | 0.072 | 0.031 |
 
+## Evaluation
+
+Two evaluations, answering different questions.
+
+| | `evaluate_samples.py` | `evaluation/model_to_model/` |
+|---|---|---|
+| Question | Does it match the published answers? | Which of two independent readings of the evidence is better supported? |
+| Coverage | 25 labelled requests | any request in the dataset |
+| Needs ground truth | yes | no |
+| Costs tokens | only with `--model` | yes, on both stages |
+
+The second is described in
+[evaluation/model_to_model/README.md](evaluation/model_to_model/README.md): two
+providers read the same evidence independently, then each grades both readings
+blind. It measures its own trustworthiness as it goes - self-preference bias is
+estimated from the two judging directions rather than assumed away, and the
+judges are calibrated against deliberately damaged readings whose correct
+verdict is known by construction.
+
 ## Tests
 
 Offline suite — no key, no network calls, no charges:
@@ -212,7 +231,9 @@ Covers money formatting, evidence scoping, recurrence and lapse detection,
 forecast ordering and safety, offer eligibility, plan ranking, spending-change
 permissions, claim validation (including the payroll guardrail) and every output
 contract rule. `tests/test_forecast_fixes.py` pins the six forecast defects the
-sample calibration exposed, one class per defect. `tests/test_open_ai.py` and `tests/test_tools.py` intercept HTTP
+sample calibration exposed, one class per defect, and
+`tests/test_model_to_model.py` covers the cross-model eval: blinding, the
+self-preference arithmetic, and the calibration maths. `tests/test_open_ai.py` and `tests/test_tools.py` intercept HTTP
 beneath the real SDK to check request shape and failure handling.
 
 Live smoke tests (these do make paid calls):
@@ -235,5 +256,6 @@ python code/smoke_tools.py
 |---|---|
 | `output.csv` | Predictions for all 250 evaluation requests |
 | `dataset/output.csv` | The same predictions in the supplied template |
-| `code/evaluation/usage_report.md` | Providers, models, calls, tokens, cost |
-| `code/evaluation/evidence_audit.jsonl` | Per request: coverage, accepted and refused claims, unresolved questions, final fields |
+| `code/evaluation/usage_report.md` | Providers, models, calls, tokens, cost (path pinned by the submission contract) |
+| `code/evaluation/reports/evidence_audit.jsonl` | Per request: coverage, accepted and refused claims, unresolved questions, final fields |
+| `code/evaluation/reports/model_to_model/` | Cross-model scorecards and per-item verdicts |

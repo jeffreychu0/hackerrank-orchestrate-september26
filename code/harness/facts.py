@@ -50,6 +50,23 @@ class ProposedFact:
     rationale: str = ""
     unresolved_questions: tuple = ()
 
+    def as_dict(self):
+        """The claim as the audit trail and the cross-model eval consume it."""
+        return {
+            "fact_type": self.fact_type,
+            "source_ids": list(self.source_ids),
+            "category": self.category,
+            "event_ids": list(self.event_ids),
+            "amount": None if self.amount is None else str(quantize(self.amount)),
+            "effective_date": (self.effective_date.isoformat()
+                               if self.effective_date else None),
+            "period_days": self.period_days,
+            "scope": self.scope,
+            "certainty": self.certainty,
+            "rationale": self.rationale,
+            "unresolved_questions": list(self.unresolved_questions),
+        }
+
     def summary(self):
         parts = [self.fact_type]
         if self.category:
@@ -71,6 +88,9 @@ class FactReview:
 
     def summaries(self):
         return tuple(fact.summary() for fact in self.accepted)
+
+    def claims(self):
+        return tuple(fact.as_dict() for fact in self.accepted)
 
 
 def _as_tuple(value):

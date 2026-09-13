@@ -4,8 +4,13 @@
 .venv/
 __pycache__/
 *.pyc
-evaluation/sample_predictions_*.csv
-evaluation/sample_usage_*.md
-evaluation/sample_audit_*.jsonl
-evaluation/*.dryrun.md
-evaluation/*.dryrun.jsonl
+# Generated run artifacts. The scorecards and the full-dataset audit trail are
+# kept; per-provider scratch from repeated experiments is not.
+evaluation/reports/sample_*.csv
+evaluation/reports/sample_*.md
+evaluation/reports/sample_*.jsonl
+evaluation/reports/model_to_model/rows_*.csv
+evaluation/reports/model_to_model/usage_*.md
+evaluation/reports/model_to_model/audit_*.jsonl
+evaluation/reports/*.dryrun.md
+evaluation/reports/*.dryrun.jsonl

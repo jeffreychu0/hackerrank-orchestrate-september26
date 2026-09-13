@@ -33,6 +33,7 @@ class RequestOutcome:
     warnings: tuple = ()
     used_model: bool = False
     accepted_facts: tuple = ()
+    accepted_claims: tuple = ()
     coverage: dict = field(default_factory=dict)
 
 
@@ -143,7 +144,7 @@ class Harness:
         return RequestOutcome(request_id, row, tuple(problems),
                               tuple(reason for _, reason in review.rejected),
                               review.unresolved, tuple(warnings), used_model,
-                              review.summaries(), coverage)
+                              review.summaries(), review.claims(), coverage)
 
     def run(self) -> RunReport:
         ids = self.request_ids()
@@ -186,7 +187,10 @@ class Harness:
                     "request_id": outcome.request_id,
                     "coverage": outcome.coverage,
                     "used_model": outcome.used_model,
+                    "provider": self.provider,
+                    "model": providers.describe(self.client) if self.client else "",
                     "accepted_facts": list(outcome.accepted_facts),
+                    "accepted_claims": list(outcome.accepted_claims),
                     "rejected_fact_reasons": list(outcome.rejected_facts),
                     "unresolved_questions": list(outcome.unresolved),
                     "warnings": list(outcome.warnings),

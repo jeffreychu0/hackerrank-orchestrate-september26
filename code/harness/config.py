@@ -10,8 +10,11 @@ DEFAULT_DATASET = REPO_ROOT / "dataset"
 #: keeps the supplied template filled in as the problem statement describes.
 DEFAULT_OUTPUT = REPO_ROOT / "output.csv"
 DEFAULT_OUTPUT_MIRRORS = (DEFAULT_DATASET / "output.csv",)
+REPORTS_DIR = CODE_ROOT / "evaluation" / "reports"
+#: Pinned by the submission contract: code.zip must contain
+#: evaluation/usage_report.md at exactly this path.
 DEFAULT_USAGE_REPORT = CODE_ROOT / "evaluation" / "usage_report.md"
-DEFAULT_AUDIT_LOG = CODE_ROOT / "evaluation" / "evidence_audit.jsonl"
+DEFAULT_AUDIT_LOG = REPORTS_DIR / "evidence_audit.jsonl"
 
 FORECAST_DAYS = 90
 
