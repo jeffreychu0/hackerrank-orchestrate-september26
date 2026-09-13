@@ -1,6 +1,6 @@
 # Agent entry point and OpenAI library
 
-This first version sends a system prompt and a user/chat prompt through the OpenAI Responses API. It does not yet reconstruct financial positions or generate dataset predictions. All implementation files, configuration examples, and tests live in this directory.
+The basic entry point sends a system prompt and a user/chat prompt through the OpenAI Responses API. A request-scoped tool agent is now also available through `python code/agent.py --request-id request_26 --json`; see [tools/README.md](tools/README.md) for its 12 tools, system workflow and provider-neutral interfaces. It produces draft evidence analysis; deterministic financial forecasting and validated dataset predictions are not yet implemented. All implementation files, configuration examples, and tests live in this directory.
 
 ## Setup
 

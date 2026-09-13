@@ -56,6 +56,10 @@ class OpenAIClient:
         if self._owns_client:
             self._sdk.close()
 
+    def run_agent(self, registry, system_prompt: str, chat_prompt: str, **limits):
+        from .agent import run_agent
+        return run_agent(self._sdk, self.settings, registry, system_prompt, chat_prompt, **limits)
+
     def __enter__(self):
         return self
 
