@@ -105,17 +105,49 @@ back to.
 
 | Field | Deterministic | With interpretation |
 |---|---:|---:|
-| `affordability_status` | 19/25 | 20/25 |
-| `recommended_payment_method` | 20/25 | 21/25 |
-| `payment_plan` | 20/25 | 20/25 |
-| `earliest_date_for_full_payment` | 15/25 | 16/25 |
-| `spending_changes_needed` | 21/25 | 21/25 |
-| All five fields exact | 15/25 | 16/25 |
-| Mean relative error on `amount_safe_to_pay` | 0.079 | 0.048 |
+| `affordability_status` | 21/25 | 22/25 |
+| `recommended_payment_method` | 22/25 | 23/25 |
+| `payment_plan` | 21/25 | 21/25 |
+| `earliest_date_for_full_payment` | 20/25 | 21/25 |
+| `spending_changes_needed` | 22/25 | 22/25 |
+| All five fields exact | 18/25 | 19/25 |
+| Mean relative error on `amount_safe_to_pay` | 0.072 | 0.031 |
 
-Policy choices that the samples drove, all in `RecurrencePolicy` so they stay
-inspectable: a pattern needs two occurrences; the per-occurrence estimate is the
-mean; a pattern whose last occurrence is more than 1.5 periods stale has lapsed
-and is not projected; payroll wordings collapse into one income stream while
-bonuses, gig payouts and a second household income stay separate; same-day
-credits land before debits.
+Policy choices that the samples drove, all in `RecurrencePolicy` and
+`SAFETY_WINDOW` so they stay inspectable: a pattern needs two occurrences; the
+per-occurrence estimate is the mean; a pattern more than 1.5 periods stale has
+lapsed; payroll wordings collapse into one income stream while bonuses, gig
+payouts and a second household income stay separate; same-day credits land
+before debits.
+
+## Defects the calibration found
+
+Six forecast defects surfaced by decomposing each disagreement into
+`(balance - minimum) - drawdown` and comparing against the implied truth. Each is
+pinned by a test class in `code/tests/test_forecast_fixes.py`.
+
+| Defect | Symptom | Fix |
+|---|---|---|
+| Cadence destroyed by a gap | Payroll interrupted by leave gives gaps [31, 91]; the median 61 falls outside the recurring range, so the salary vanished. 8 requests had no income at all. | Recover the base period when every gap is a near-whole multiple of the smallest |
+| Income the history cannot establish | One prorated first payslip plus a message confirming the real amount and date. No claim type could create an income stream. 6 requests had no income. | Added `new_recurring_income`, which is cash-increasing and so requires confirmation |
+| One-off row absorbed into a pattern | A scheduled "Outstanding rent balance" joined the rent pattern and re-timed and re-priced it. | Only confirmed future *credits* extend a pattern; future debits stay standalone flows |
+| Wrong safety window | `earliest_date_for_full_payment` and plan feasibility were judged over the full 90 days, so request_08, request_12 and request_13 found no safe date where the samples do. | Judge a payment over the request's completion window; keep `amount_safe_to_pay` a 90-day measure |
+| Obligation due today dropped | A monthly commitment whose next occurrence lands exactly on the request date was skipped, understating request_19's drawdown by a full month of rent. | Project occurrences from the request date inclusive; they are always after the last recorded one |
+| Cuts never compared against a late plan | A no-change plan that finishes after the deadline short-circuited the spending-change search, although completing on time outranks avoiding a cut. | Search changes whenever the best no-change plan is late, then rank both together |
+
+Two things the calibration ruled *out* rather than fixed. Projected debits track
+the previous 90 days of settled debits to within 1.3%, so the expense model is
+unbiased; and although the statement asks for conservative variable-spend
+forecasting, every estimator above the plain mean (`mean3`, `max3`, the 60th to
+80th percentile) left the field agreement unchanged and made the amount error
+worse. The `variable_estimator` knob keeps that result reproducible.
+
+## What still disagrees
+
+Six of the 25 samples still differ, and none is a rule difference any more.
+Scaling every projected debit by a factor and solving for the factor that
+reproduces the sample's `amount_safe_to_pay` shows the residue is 1-3% of
+variable-spend estimation landing on the wrong side of a threshold: request_06,
+request_11 and request_21 turn on whether a permitted cut is needed at all, and
+request_03, request_17 and request_19 differ only in a date or the amounts inside
+an otherwise correct plan.

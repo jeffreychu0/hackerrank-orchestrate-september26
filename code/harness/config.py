@@ -14,6 +14,13 @@ DEFAULT_USAGE_REPORT = CODE_ROOT / "evaluation" / "usage_report.md"
 DEFAULT_AUDIT_LOG = CODE_ROOT / "evaluation" / "evidence_audit.jsonl"
 
 FORECAST_DAYS = 90
+
+#: Which window a payment must keep safe. "completion" runs from the request date
+#: through the later of desired_completion_date and the final payment - the window
+#: in which the request is actually live, and the reading the supplied samples
+#: follow for request_08, request_12 and request_13. "horizon" uses the full 90
+#: days for plans too. amount_safe_to_pay is a 90-day measure either way.
+SAFETY_WINDOW = "completion"
 MAX_SPENDING_CHANGES = 3
 
 #: Providers publish prices per million tokens; override through the CLI.
@@ -30,6 +37,9 @@ class RecurrencePolicy:
     monthly_period_range: tuple[int, int] = (26, 33)
     amount_estimator: str = "mean"
     credit_estimator: str = ""
+    #: "Forecast essential variable spending conservatively" - so the categories
+    #: that move week to week may use a higher estimate than their plain mean.
+    variable_estimator: str = ""
     #: A pattern whose last occurrence is this many periods stale has lapsed.
     stale_periods: float = 1.5
     #: How a credit pattern must look before it counts as confirmed future income:
@@ -37,6 +47,11 @@ class RecurrencePolicy:
     income_stability: str = "off"
     income_spread_limit: float = 0.10
     income_window: int = 4
+    #: How a confirmed future row in a category relates to that category's
+    #: projected occurrences: "window" suppresses projections within
+    #: explicit_match_window_days, "substitute" suppresses the single
+    #: nearest projection within one period, "add" suppresses nothing.
+    explicit_row_handling: str = "window"
     explicit_match_window_days: int = 3
     terminal_income_markers: tuple[str, ...] = ("final ", "last ", "terminated", "severance")
 
@@ -49,6 +64,7 @@ class HarnessConfig:
     usage_report: Path = DEFAULT_USAGE_REPORT
     audit_log: Path | None = DEFAULT_AUDIT_LOG
     forecast_days: int = FORECAST_DAYS
+    safety_window: str = SAFETY_WINDOW
     use_model: bool = True
     explain_with_model: bool = True
     max_tool_calls: int = 12

@@ -30,6 +30,11 @@ Return one claim per material fact, using only these fact_type values:
 - income_date_change: a confirmed new date for the next income payment.
 - recurring_expense_amount_change: a confirmed new amount for a recurring expense (rent increase).
 - new_recurring_expense: a newly announced recurring commitment with a start date.
+- new_recurring_income: a confirmed income stream the listed patterns do not already
+  cover - a first salary with a stated amount and credit date, or pay resuming after
+  leave when no income pattern is listed. Give amount, effective_date and period_days
+  (30 for monthly). Use this only when no income pattern is listed for that category;
+  when one is listed, use income_amount_change or income_date_change instead.
 - exclude_projection: an entire repeating pattern must NOT be projected forward -
   unapproved bonuses or commissions, pending platform payouts, prize proceeds,
   one-off windfalls, own-account transfers, or a stream that has already lapsed.

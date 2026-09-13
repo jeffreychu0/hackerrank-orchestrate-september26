@@ -83,7 +83,7 @@ write and validate the row             code   contract enforced before anything 
 | File | Responsibility |
 |---|---|
 | `harness/ledger.py` | Mandatory evidence bundle; cash effects with provenance and exclusion reasons |
-| `harness/recurrence.py` | Recurring patterns; income-stream identification; lapsed-pattern detection |
+| `harness/recurrence.py` | Recurring patterns; cadence recovery across gaps; income streams; lapse detection |
 | `harness/forecast.py` | Dated balance path, safe amount today, earliest safe full-payment date |
 | `harness/plans.py` | Candidate generation, offer eligibility, strict ranking |
 | `harness/changes.py` | Permitted `stop:` / `reduce_to:` search, least intrusive first |
@@ -110,6 +110,16 @@ write and validate the row             code   contract enforced before anything 
 - **Cash-increasing claims need confirmation.** A claim that frees up money is
   discarded unless the evidence states the fact as settled or approved; claims
   that reserve money are applied either way, which is the safer reading.
+- **A payment is judged over the window the request is live in.** Plan safety and
+  `earliest_date_for_full_payment` run from the request date through the later of
+  `desired_completion_date` and the final payment; `amount_safe_to_pay` stays a
+  90-day measure. This is the reading request_08, request_12 and request_13 follow.
+- **An obligation due today is due.** A monthly commitment whose next occurrence
+  lands on the request date counts, unless the history already records it as
+  settled that day.
+- **A one-off future row is a flow, not a pattern.** A scheduled arrears balance
+  or school fee is reserved on its own date and never re-times or re-prices the
+  category pattern it happens to share.
 - **Determinism.** Everything except the interpretation call is a pure function
   of the dataset. The model call is the one source of run-to-run variation;
   `--no-model` removes it entirely.
@@ -129,13 +139,13 @@ Current agreement with the 25 published answers:
 
 | Field | Deterministic | With interpretation |
 |---|---:|---:|
-| `affordability_status` | 19/25 | 20/25 |
-| `recommended_payment_method` | 20/25 | 21/25 |
-| `payment_plan` | 20/25 | 20/25 |
-| `earliest_date_for_full_payment` | 15/25 | 16/25 |
-| `spending_changes_needed` | 21/25 | 21/25 |
-| All five fields exact | 15/25 | 16/25 |
-| Mean relative error on `amount_safe_to_pay` | 0.079 | 0.048 |
+| `affordability_status` | 21/25 | 22/25 |
+| `recommended_payment_method` | 22/25 | 23/25 |
+| `payment_plan` | 21/25 | 21/25 |
+| `earliest_date_for_full_payment` | 20/25 | 21/25 |
+| `spending_changes_needed` | 22/25 | 22/25 |
+| All five fields exact | 18/25 | 19/25 |
+| Mean relative error on `amount_safe_to_pay` | 0.072 | 0.031 |
 
 ## Tests
 
@@ -148,7 +158,8 @@ python -m unittest discover -s code/tests -t code -v
 Covers money formatting, evidence scoping, recurrence and lapse detection,
 forecast ordering and safety, offer eligibility, plan ranking, spending-change
 permissions, claim validation (including the payroll guardrail) and every output
-contract rule. `tests/test_open_ai.py` and `tests/test_tools.py` intercept HTTP
+contract rule. `tests/test_forecast_fixes.py` pins the six forecast defects the
+sample calibration exposed, one class per defect. `tests/test_open_ai.py` and `tests/test_tools.py` intercept HTTP
 beneath the real SDK to check request shape and failure handling.
 
 Live smoke tests (these do make paid calls):

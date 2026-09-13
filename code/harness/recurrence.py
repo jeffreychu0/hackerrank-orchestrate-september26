@@ -67,8 +67,14 @@ class Series:
             return "{}/{}".format(self.category, self.stream)
         return "{}/{}".format(self.category, self.direction)
 
-    def projected_dates(self, start_exclusive, end_inclusive):
-        """Occurrence dates strictly after ``start_exclusive`` up to the horizon."""
+    def projected_dates(self, start, end_inclusive):
+        """Occurrence dates from ``start`` to the horizon.
+
+        The request date itself counts. Every projected date is strictly after
+        the last recorded occurrence, so an expense already settled today cannot
+        be charged twice - but a monthly obligation that falls due today and is
+        not in the history yet is a real upcoming payment, not a free day.
+        """
         dates = []
         step = 1
         while True:
@@ -79,7 +85,7 @@ class Series:
             if nxt > end_inclusive:
                 break
             step += 1
-            if nxt > start_exclusive:
+            if nxt >= start:
                 dates.append(nxt)
             if step > 400:
                 break
@@ -178,6 +184,35 @@ def _is_confirmed_income(amounts, dates, bundle, policy):
     return float((max(window) - min(window)) / average) <= policy.income_spread_limit
 
 
+def _period_from(gaps):
+    """Recover the underlying cadence when occurrences are missing.
+
+    Two months of unpaid leave turn a monthly salary's gaps into [31, 91], whose
+    median is 61 - a cadence the user never had, and one that falls outside the
+    recurring range entirely, so the salary would vanish from the forecast. When
+    every gap is close to a whole multiple of the smallest one, that smallest gap
+    is the real period and the larger gaps are skipped occurrences.
+    """
+    base = min(gaps)
+    if base > 0:
+        ratios = [gap / base for gap in gaps]
+        if (all(abs(ratio - round(ratio)) <= 0.2 for ratio in ratios)
+                and max(ratios) <= 4):
+            return base
+    return int(statistics.median(gaps))
+
+
+def _estimator_for(key, policy):
+    """Income, fixed commitments and variable essentials may be estimated apart."""
+    event_type, category, direction = key[0], key[1], key[2]
+    if direction == "credit" and policy.credit_estimator:
+        return policy.credit_estimator
+    if (policy.variable_estimator
+            and category in VARIABLE_ESSENTIAL_CATEGORIES and direction == "debit"):
+        return policy.variable_estimator
+    return policy.amount_estimator
+
+
 def _estimate(amounts, estimator):
     if estimator == "last":
         return amounts[-1]
@@ -188,6 +223,11 @@ def _estimate(amounts, estimator):
         return sum(window) / len(window)
     if estimator == "max3":
         return max(amounts[-3:])
+    if estimator.startswith("p"):
+        ordered = sorted(amounts)
+        index = (int(estimator[1:]) / 100) * (len(ordered) - 1)
+        low, high = ordered[int(index)], ordered[min(int(index) + 1, len(ordered) - 1)]
+        return low + (high - low) * Decimal(str(index - int(index)))
     return sum(amounts) / len(amounts)
 
 
@@ -210,8 +250,14 @@ def detect(bundle, policy: RecurrencePolicy | None = None):
         if cash_date is None:
             continue
         settled_history = event.status == "settled" and cash_date <= bundle.as_of
-        confirmed_future = event.status == "scheduled" and cash_date > bundle.as_of
-        if not (settled_history or confirmed_future):
+        # A scheduled future credit is the next occurrence of an income stream the
+        # history already shows. A scheduled future debit is a one-off commitment -
+        # an outstanding balance, a school fee - already reserved as its own flow;
+        # letting it join a category's pattern would re-time and re-price that
+        # pattern from a payment that is not part of it.
+        confirmed_income = (event.status == "scheduled" and cash_date > bundle.as_of
+                            and event.direction == "credit")
+        if not (settled_history or confirmed_income):
             continue
         groups.setdefault(_group_key(event), []).append(event)
     groups = _merge_confirmed_future_income(groups, bundle, policy)
@@ -228,7 +274,7 @@ def detect(bundle, policy: RecurrencePolicy | None = None):
         gaps = [g for g in gaps if g > 0]
         if not gaps:
             continue
-        period = int(statistics.median(gaps))
+        period = _period_from(gaps)
         if not 1 <= period <= policy.max_period_days:
             continue
         amounts = [e.home_amount for e in events]
@@ -240,9 +286,7 @@ def detect(bundle, policy: RecurrencePolicy | None = None):
         series.append(Series(
             key=key, event_type=key[0], category=key[1], direction=key[2],
             period_days=period, monthly=low <= period <= high,
-            amount=quantize(_estimate(amounts, policy.credit_estimator
-                                      if key[2] == "credit" and policy.credit_estimator
-                                      else policy.amount_estimator)),
+            amount=quantize(_estimate(amounts, _estimator_for(key, policy))),
             last_date=dates[-1], last_event_id=last.event_id,
             descriptions=tuple(dict.fromkeys(e.description for e in events[-4:])),
             occurrences=len(events),

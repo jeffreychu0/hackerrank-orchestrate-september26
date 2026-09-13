@@ -62,23 +62,35 @@ class Decision:
         }
 
 
-def decide(bundle, series_list, *, fact_summaries=(), coverage=None):
+def decide(bundle, series_list, *, policy=None, safety_window="completion",
+           fact_summaries=(), coverage=None):
     """Run the full deterministic decision for one request."""
-    baseline = forecasting.build(bundle, series_list)
+    baseline = forecasting.build(bundle, series_list, policy)
+    # amount_safe_to_pay is a 90-day measure, as the statement specifies. Whether
+    # a dated payment is safe is judged across the window the request is live in.
+    window = bundle.deadline if safety_window == "completion" else None
     safe_today = baseline.safe_amount_today(bundle.requested_amount)
-    earliest_full = baseline.earliest_full_payment_date(bundle.requested_amount)
+    earliest_full = baseline.earliest_full_payment_date(bundle.requested_amount,
+                                                        deadline=window)
 
-    candidate = plans.best(plans.generate(bundle, baseline, earliest_full))
+    candidate = plans.best(plans.generate(bundle, baseline, earliest_full, deadline=window))
     applied = ()
-    if candidate is None:
+    # Completing by the deadline outranks avoiding a cut, so a plan that finishes
+    # late does not settle the question: permitted changes still have to be tried
+    # and then ranked against it.
+    if candidate is None or not candidate.on_time:
         def builder(selection):
-            adjusted = forecasting.apply_changes(bundle, series_list, selection)
+            adjusted = forecasting.apply_changes(bundle, series_list, selection, policy)
             # Capacity fields stay on the unchanged budget; only the plan changes.
             return plans.best(plans.generate(
                 bundle, adjusted,
-                adjusted.earliest_full_payment_date(bundle.requested_amount),
-                changes=selection))
-        candidate, applied = change_search.search(bundle, series_list, builder)
+                adjusted.earliest_full_payment_date(bundle.requested_amount,
+                                                    deadline=window),
+                changes=selection, deadline=window))
+        changed, selection = change_search.search(bundle, series_list, builder)
+        if changed is not None and (candidate is None
+                                    or changed.rank_key() < candidate.rank_key()):
+            candidate, applied = changed, selection
 
     if candidate is None:
         candidate = plans.no_plan(bundle)
@@ -86,7 +98,8 @@ def decide(bundle, series_list, *, fact_summaries=(), coverage=None):
     else:
         status, method = candidate.status, candidate.method
 
-    final = baseline if not applied else forecasting.apply_changes(bundle, series_list, applied)
+    final = (baseline if not applied else
+             forecasting.apply_changes(bundle, series_list, applied, policy))
     projected_minimum = final.with_flows(
         forecasting.Flow(when, -amount, "payment", "recommended_payment")
         for when, amount in candidate.payments).minimum_balance()

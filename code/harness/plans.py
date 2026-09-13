@@ -119,7 +119,7 @@ def review_options(bundle):
     return reviews
 
 
-def generate(bundle, forecast, earliest_full, *, changes=()):
+def generate(bundle, forecast, earliest_full, *, changes=(), deadline=None):
     """Every eligible plan that is safe against this forecast and its deadline."""
     candidates = []
     requested = bundle.requested_amount
@@ -127,13 +127,13 @@ def generate(bundle, forecast, earliest_full, *, changes=()):
 
     if METHOD_FULL in bundle.accepted_methods and bundle.as_of <= bundle.deadline:
         payments = ((bundle.as_of, requested),)
-        if forecast.supports_payments(payments):
+        if forecast.supports_payments(payments, deadline=deadline):
             candidates.append(Candidate(METHOD_FULL, payments, requested, changes=changes))
 
     for review in review_options(bundle):
         if review.method != METHOD_INSTALLMENTS or not review.eligible:
             continue
-        if forecast.supports_payments(review.payments):
+        if forecast.supports_payments(review.payments, deadline=deadline):
             candidates.append(Candidate(METHOD_INSTALLMENTS, review.payments,
                                         review.total_cost, review.option_id, changes))
 
@@ -142,7 +142,7 @@ def generate(bundle, forecast, earliest_full, *, changes=()):
             and ZERO < safe_today < requested and earliest_full is not None
             and earliest_full <= bundle.deadline and earliest_full > bundle.as_of):
         payments = ((bundle.as_of, safe_today), (earliest_full, requested - safe_today))
-        if forecast.supports_payments(payments):
+        if forecast.supports_payments(payments, deadline=deadline):
             candidates.append(Candidate(METHOD_PARTIAL, payments, requested, changes=changes))
 
     # ``wait`` is eligible whenever full payment becomes safe later and the user
@@ -151,7 +151,7 @@ def generate(bundle, forecast, earliest_full, *, changes=()):
     if (METHOD_FULL in bundle.accepted_methods and earliest_full is not None
             and earliest_full > bundle.as_of):
         payments = ((earliest_full, requested),)
-        if forecast.supports_payments(payments):
+        if forecast.supports_payments(payments, deadline=deadline):
             candidates.append(Candidate(METHOD_WAIT, payments, requested, changes=changes,
                                         on_time=earliest_full <= bundle.deadline))
 

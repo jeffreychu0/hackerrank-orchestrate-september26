@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from .money import MoneyError, ZERO, parse, quantize
-from .recurrence import Series
+from .recurrence import Series, add_months
 
 #: Claim vocabulary. Anything outside this set is rejected, not guessed at.
 FACT_TYPES = (
@@ -21,6 +21,7 @@ FACT_TYPES = (
     "income_date_change",
     "recurring_expense_amount_change",
     "new_recurring_expense",
+    "new_recurring_income",
     "exclude_projection",
     "event_amount",
     "exclude_event",
@@ -30,7 +31,8 @@ FACT_TYPES = (
 CERTAINTY = ("confirmed", "likely", "unconfirmed")
 
 #: Claims that free up cash need confirmation; claims that reserve cash do not.
-CASH_INCREASING = frozenset({"income_amount_change", "event_amount"})
+CASH_INCREASING = frozenset({"income_amount_change", "event_amount",
+                             "new_recurring_income"})
 
 
 @dataclass(frozen=True)
@@ -164,9 +166,9 @@ def _shape_problem(fact):
     if fact.fact_type in ("income_amount_change", "recurring_expense_amount_change"):
         if fact.amount is None or not fact.category:
             return "amount_change_requires_category_and_amount"
-    if fact.fact_type == "new_recurring_expense":
+    if fact.fact_type in ("new_recurring_expense", "new_recurring_income"):
         if fact.amount is None or fact.effective_date is None:
-            return "new_recurring_expense_requires_amount_and_start_date"
+            return fact.fact_type + "_requires_amount_and_start_date"
     if fact.fact_type in ("income_stream_ends", "exclude_projection") and not fact.category:
         return "series_level_fact_requires_category"
     if fact.fact_type == "income_date_change" and fact.effective_date is None:
@@ -268,19 +270,42 @@ def apply_series_facts(bundle, series_list, review):
                     series.override_scope = "next_occurrence"
                     series.override_sources = fact.source_ids
         elif fact.fact_type == "new_recurring_expense":
-            result.append(_new_expense_series(bundle, fact))
+            result.append(_new_series(bundle, fact, "debit"))
+        elif fact.fact_type == "new_recurring_income":
+            # An announcement never stacks on top of income the history already
+            # shows: if the stream is already projected, this amends it instead.
+            existing = [s for s in result if s.direction == "credit" and s.active
+                        and (not fact.category or s.category == fact.category)]
+            if existing:
+                for series in existing:
+                    series.amount_override = quantize(fact.amount)
+                    series.date_override = fact.effective_date
+                    series.override_scope = fact.scope
+                    series.override_sources = fact.source_ids
+            else:
+                result.append(_new_series(bundle, fact, "credit"))
     return result
 
 
-def _new_expense_series(bundle, fact):
+def _new_series(bundle, fact, direction):
+    """A commitment or income stream the evidence announces but history lacks."""
     period = fact.period_days or 30
-    start = fact.effective_date
-    anchor = start - timedelta(days=period)
+    credit = direction == "credit"
+    category = fact.category or ("salary" if credit else "other")
+    event_type = "income" if credit else "expense"
+    # Anchor one period before the announced start so the first projected
+    # occurrence lands exactly on the confirmed date. Monthly patterns step by
+    # calendar month, so the anchor has to step back the same way.
+    monthly = 26 <= period <= 33
+    anchor = (add_months(fact.effective_date, -1) if monthly
+              else fact.effective_date - timedelta(days=period))
     return Series(
-        key=("expense", fact.category or "other", "debit"),
-        event_type="expense", category=fact.category or "other", direction="debit",
-        period_days=period, monthly=26 <= period <= 33, amount=quantize(fact.amount),
-        last_date=anchor, last_event_id="", descriptions=("reported new commitment",),
+        key=(event_type, category, direction),
+        event_type=event_type, category=category, direction=direction,
+        period_days=period, monthly=monthly, amount=quantize(fact.amount),
+        last_date=anchor, last_event_id="",
+        descriptions=("reported new " + ("income" if credit else "commitment"),),
         occurrences=0, supporting_event_ids=fact.source_ids, flexibility="fixed",
         minimum_allowed_amount=None,
+        stream="payroll" if credit else "",
         extra_note="added from " + ",".join(fact.source_ids))

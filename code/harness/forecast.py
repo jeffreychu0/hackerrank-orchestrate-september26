@@ -77,20 +77,44 @@ class Forecast:
     def headroom(self, *, on_or_after=None):
         return self.minimum_balance(on_or_after=on_or_after) - self.minimum
 
-    def is_safe(self):
-        return self.headroom() >= ZERO
+    def is_safe(self, *, until=None):
+        """Does the balance hold the floor through ``until`` (default: the horizon)?"""
+        limit = self.end if until is None else min(until, self.end)
+        return all(balance >= self.minimum for when, balance in self.path() if when <= limit)
 
     def safe_amount_today(self, cap):
         """Largest amount payable on the start date that never breaks the floor."""
         return clamp(quantize(self.headroom()), ZERO, cap)
 
-    def supports_payments(self, payments):
-        """True when every dated payment keeps the whole path above the floor."""
+    def completion_window(self, deadline, last_payment=None):
+        """How far a payment has to keep the balance safe.
+
+        The request is live from the request date until it is completed, so the
+        window runs to the later of its completion deadline and the payment
+        itself. With no deadline supplied this is simply the whole horizon.
+        """
+        if deadline is None:
+            return self.end
+        end = deadline if last_payment is None else max(deadline, last_payment)
+        return min(end, self.end)
+
+    def supports_payments(self, payments, *, deadline=None):
+        """True when every dated payment holds the floor across its window."""
         trial = self.with_flows(
             Flow(when, -amount, "payment", "recommended_payment") for when, amount in payments)
-        return trial.is_safe()
+        return trial.is_safe(until=self.completion_window(deadline, payments[-1][0]))
 
-    def earliest_full_payment_date(self, amount):
+    def candidate_dates(self):
+        """Dates worth testing: the forecast only steps where a flow lands."""
+        dates = {self.start}
+        for flow in self.flows:
+            if self.start <= flow.when <= self.end:
+                dates.add(flow.when)
+                if flow.when + timedelta(days=1) <= self.end:
+                    dates.add(flow.when + timedelta(days=1))
+        return sorted(dates)
+
+    def earliest_full_payment_date(self, amount, *, deadline=None):
         """First date a single full payment is safe, or None inside the horizon.
 
         Capacity only, exactly as the contract defines it: independent of which
@@ -98,14 +122,8 @@ class Forecast:
         """
         if amount <= ZERO:
             return self.start
-        candidates = {self.start}
-        for flow in self.flows:
-            if self.start <= flow.when <= self.end:
-                candidates.add(flow.when)
-                if flow.when + timedelta(days=1) <= self.end:
-                    candidates.add(flow.when + timedelta(days=1))
-        for when in sorted(candidates):
-            if self.supports_payments([(when, amount)]):
+        for when in self.candidate_dates():
+            if self.supports_payments([(when, amount)], deadline=deadline):
                 return when
         return None
 
@@ -126,8 +144,10 @@ def _record_flows(bundle):
     return flows
 
 
-def _projection_flows(bundle, series_list):
+def _projection_flows(bundle, series_list, policy=None):
     """Recurring series projected forward, minus dates a confirmed row covers."""
+    from .config import RecurrencePolicy
+    policy = policy or RecurrencePolicy()
     covered = {}
     for event in bundle.events:
         if event.status in ("pending", "scheduled") and event.cash_date and \
@@ -135,21 +155,20 @@ def _projection_flows(bundle, series_list):
             covered.setdefault((event.event_type, event.category, event.direction), []) \
                 .append(event.cash_date)
     flows = []
-    window = 3
     for series in series_list:
         if not series.active:
             continue
         occurrences = series.projected_dates(bundle.as_of, bundle.horizon_end)
         single = series.override_scope == "next_occurrence"
+        skip = _suppressed_occurrences(occurrences, sorted(covered.get(series.key, ())),
+                                       series.period_days, policy)
         for index, when in enumerate(occurrences):
             # An amendment scoped to the next payment amends only that payment;
             # later occurrences fall back to the pattern the history supports.
             amount = series.amount if (single and index) else series.effective_amount
             if series.date_override is not None and (index == 0 or not single):
                 when = series.date_override if index == 0 else when
-            if any(abs((when - taken).days) <= window for taken in covered.get(series.key, ())):
-                continue
-            if amount == ZERO:
+            if index in skip or amount == ZERO:
                 continue
             signed = amount if series.direction == "credit" else -amount
             flows.append(Flow(when, signed, "projection", series.label(),
@@ -157,14 +176,45 @@ def _projection_flows(bundle, series_list):
     return flows
 
 
-def build(bundle, series_list):
+def _suppressed_occurrences(occurrences, explicit, period, policy):
+    """Which projected occurrences a confirmed row in the same category covers.
+
+    A confirmed row is already in the forecast as its own flow. Whether it also
+    replaces the pattern's occurrence for that cycle is a modelling choice: a
+    pending fuel authorisation plausibly is that week's transport spend, while a
+    scheduled school fee is plainly extra.
+    """
+    if policy.explicit_row_handling == "add" or not explicit:
+        return set()
+    skip = set()
+    if policy.explicit_row_handling == "substitute":
+        for when in explicit:
+            nearest, best = None, None
+            for index, occurrence in enumerate(occurrences):
+                if index in skip:
+                    continue
+                distance = abs((occurrence - when).days)
+                if distance <= period and (best is None or distance < best):
+                    nearest, best = index, distance
+            if nearest is not None:
+                skip.add(nearest)
+        return skip
+    span = policy.explicit_match_window_days
+    for index, occurrence in enumerate(occurrences):
+        if any(abs((occurrence - when).days) <= span for when in explicit):
+            skip.add(index)
+    return skip
+
+
+def build(bundle, series_list, policy=None):
     """The baseline forecast: no request payment, no optional spending change."""
     forecast = Forecast(opening=bundle.opening_balance, minimum=bundle.minimum_balance,
                         start=bundle.as_of, end=bundle.horizon_end)
-    return forecast.with_flows(_record_flows(bundle) + _projection_flows(bundle, series_list))
+    return forecast.with_flows(_record_flows(bundle)
+                               + _projection_flows(bundle, series_list, policy))
 
 
-def apply_changes(bundle, series_list, changes):
+def apply_changes(bundle, series_list, changes, policy=None):
     """Rebuild the forecast with a set of permitted spending changes applied."""
     adjusted = []
     by_event = {change.event_id: change for change in changes}
@@ -178,7 +228,7 @@ def apply_changes(bundle, series_list, changes):
         else:
             clone = _clone(series, amount_override=change.new_amount)
         adjusted.append(clone)
-    return build(bundle, adjusted)
+    return build(bundle, adjusted, policy)
 
 
 def _clone(series: Series, **updates):

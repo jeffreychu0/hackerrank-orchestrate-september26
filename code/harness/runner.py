@@ -110,7 +110,8 @@ class Harness:
             "series_detected": len(series),
             "unresolved_amounts": len(bundle.unknown_amount_event_ids),
         }
-        decision = decide.decide(bundle, series,
+        decision = decide.decide(bundle, series, policy=self.config.recurrence,
+                                 safety_window=self.config.safety_window,
                                  fact_summaries=review.summaries(), coverage=coverage)
 
         explanation = explain.template(decision, bundle)
