@@ -1,12 +1,12 @@
 # Sample decision priorities and suggested weights
 
-This document captures the priority-analysis lessons from [SAMPLE.md](SAMPLE.md) and the [25 supplied examples](../dataset/sample_requests.csv). It separates the challenge's explicit rules from proposed scoring weights and concerns about particular answers. The exact sample cash-flow forecasts have not been independently reproduced.
+This document captures the priority-analysis lessons from [SAMPLE.md](SAMPLE.md) and the [25 supplied examples](../../dataset/sample_requests.csv). It separates the challenge's explicit rules from proposed scoring weights and concerns about particular answers. The exact sample cash-flow forecasts have not been independently reproduced.
 
 ## What the samples appear to prioritize
 
 The samples use hard constraints followed by an ordered comparison of feasible plans. Their central question is whether the requested expense can be completed safely using payment methods the user accepts. They do not demonstrate a numerical score for whether a purchase is personally worthwhile.
 
-The [problem statement](../problem_statement.md) explicitly specifies the plan-ranking order. Evidence reconstruction comes first: use supported financial facts, reserve essential commitments, and exclude unsupported income before comparing payment plans.
+The [problem statement](../../problem_statement.md) explicitly specifies the plan-ranking order. Evidence reconstruction comes first: use supported financial facts, reserve essential commitments, and exclude unsupported income before comparing payment plans.
 
 ```mermaid
 flowchart TD

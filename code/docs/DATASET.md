@@ -1,6 +1,6 @@
 # Dataset guide: what one user request gives us
 
-This document describes the participant-facing files in this checkout, inspected on September 12, 2026. Rules come from [problem_statement.md](../problem_statement.md) and [AGENTS.md](../AGENTS.md); counts and examples come from `dataset/`. No organizer-only data was used.
+This document describes the participant-facing files in this checkout, inspected on September 12, 2026. Rules come from [problem_statement.md](../../problem_statement.md) and [AGENTS.md](../../AGENTS.md); counts and examples come from `dataset/`. No organizer-only data was used.
 
 **A request can immediately retrieve a balance, safety threshold, preferences, transaction history, seller offers, and supporting evidence. It cannot retrieve a complete recurring budget or a ready-made affordability decision. Those must be constructed from the supplied evidence.**
 

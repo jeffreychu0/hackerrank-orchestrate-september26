@@ -1,8 +1,8 @@
 # Harness architecture: what is deterministic and what is not
 
 This document records the division of responsibility implemented in
-[`code/harness/`](../code/harness). The rules come from
-[problem_statement.md](../problem_statement.md) and [AGENTS.md](../AGENTS.md);
+[`code/harness/`](../harness). The rules come from
+[problem_statement.md](../../problem_statement.md) and [AGENTS.md](../../AGENTS.md);
 the calibration figures come from the 25 answers in `dataset/sample_requests.csv`.
 
 **Code guarantees evidence coverage and financial correctness. The model

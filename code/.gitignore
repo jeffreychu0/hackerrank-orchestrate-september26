@@ -14,3 +14,4 @@ evaluation/reports/model_to_model/usage_*.md
 evaluation/reports/model_to_model/audit_*.jsonl
 evaluation/reports/*.dryrun.md
 evaluation/reports/*.dryrun.jsonl
+*.stackdump
