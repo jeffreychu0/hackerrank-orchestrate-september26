@@ -58,6 +58,7 @@ Useful flags:
 | `--workers 8` | Parallel requests when the model is in use |
 | `--input-cost-per-mtok` / `--output-cost-per-mtok` | Pricing used in the usage report |
 | `--no-mirror` | Skip the `dataset/output.csv` copy |
+| `--provider anthropic` | Interpret the evidence with Claude instead of GPT |
 
 A model failure on one request degrades that request to the deterministic path
 and is reported on stderr; it never aborts the run. A row that would break the
@@ -88,6 +89,7 @@ write and validate the row             code   contract enforced before anything 
 | `harness/plans.py` | Candidate generation, offer eligibility, strict ranking |
 | `harness/changes.py` | Permitted `stop:` / `reduce_to:` search, least intrusive first |
 | `harness/decide.py` | Locks the computed output fields for one request |
+| `harness/providers.py` | Provider registry, client factory and list pricing |
 | `harness/interpret.py` | The model prompt, JSON schema and image attachment |
 | `harness/facts.py` | Claim vocabulary, validation and application |
 | `harness/explain.py` | Explanation writers (deterministic template, optional model) |
@@ -123,6 +125,57 @@ write and validate the row             code   contract enforced before anything 
 - **Determinism.** Everything except the interpretation call is a pure function
   of the dataset. The model call is the one source of run-to-run variation;
   `--no-model` removes it entirely.
+
+## Providers
+
+Two interpretation providers are implemented behind one contract
+(`structured(...) -> (payload, ModelResult)`), selected with `--provider`:
+
+| Provider | Package | Default model | Credentials |
+|---|---|---|---|
+| `openai` | `open_ai/` | `OPENAI_MODEL` | `OPENAI_API_KEY` |
+| `anthropic` | `anthropic_ai/` | `claude-opus-5` | `ANTHROPIC_API_KEY`, or any credential the SDK resolves |
+
+The Anthropic package is spelled `anthropic_ai` because `code/` is on
+`sys.path`, so a local package named `anthropic` would shadow the installed SDK
+- the same reason `open_ai` is spelled with an underscore. Nothing under
+`harness/` imports a vendor SDK; adding a third provider is one row in
+`harness/providers.py`.
+
+Anthropic specifics: structured output goes through
+`output_config.format.json_schema`; a refusal arrives as HTTP 200, so
+`stop_reason` is checked before the body is parsed; thinking blocks are skipped
+when reading the answer; a blank `ANTHROPIC_API_KEY` is not an error, because
+the SDK then resolves `ANTHROPIC_AUTH_TOKEN`, an `ant auth login` profile or
+workload identity federation. Cost estimates are per model, not per provider.
+
+### Provider comparison
+
+```powershell
+python code/compare_providers.py            # runs both, scores both, diffs them
+python code/compare_providers.py --reuse    # re-score CSVs already on disk
+```
+
+Measured on the 25 published samples, GPT-5.4 against Claude Sonnet 5 on an
+identical prompt and schema:
+
+| | GPT-5.4 | Claude Sonnet 5 |
+|---|---:|---:|
+| `affordability_status` | 22/25 | 22/25 |
+| `recommended_payment_method` | 23/25 | 23/25 |
+| `payment_plan` | 21/25 | 21/25 |
+| `earliest_date_for_full_payment` | 21/25 | 21/25 |
+| `spending_changes_needed` | 22/25 | 22/25 |
+| All five fields exact | 19/25 | 19/25 |
+| Mean relative amount error | 0.031 | 0.033 |
+| Tokens for the 19 calls | 49,208 | 89,607 |
+| Estimated cost | $0.10 | $0.30 |
+
+24 of 25 rows are byte-identical. The exception is request_19, whose grocery
+receipt is cropped before its final payable total: GPT fills the blank amount
+from the visible item subtotal, Claude declines to fill it and says why. The
+sample answer sits between the two results. The deterministic engine decides
+everything else, which is why two different models land in the same place.
 
 ## Calibrating against the supplied samples
 

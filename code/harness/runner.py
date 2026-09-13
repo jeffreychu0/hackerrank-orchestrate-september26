@@ -17,9 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from open_ai import OpenAIClient, Settings
-
-from . import decide, explain, facts, interpret, output, recurrence
+from . import decide, explain, facts, interpret, output, providers, recurrence
 from .config import REPO_ROOT, HarnessConfig
 from .ledger import EvidenceLoader
 from .usage import UsageLedger
@@ -62,14 +60,28 @@ class Harness:
                                      include_samples=config.include_samples,
                                      forecast_days=config.forecast_days)
         self.client = None
-        self.usage = UsageLedger("openai", config.input_cost_per_mtok,
-                                 config.output_cost_per_mtok)
+        self.provider = providers.normalise(config.provider)
+        list_input, list_output = providers.default_pricing(self.provider)
+        self.usage = UsageLedger(
+            self.provider,
+            config.input_cost_per_mtok if config.input_cost_per_mtok is not None
+            else list_input,
+            config.output_cost_per_mtok if config.output_cost_per_mtok is not None
+            else list_output)
         self._client_lock = threading.Lock()
 
     def __enter__(self):
         if self.config.use_model or self.config.explain_with_model:
-            self.client = OpenAIClient(Settings.from_env())
+            self.client = providers.build_client(self.provider)
+            self._price_for_model(providers.describe(self.client))
         return self
+
+    def _price_for_model(self, model):
+        """Refine the cost estimate once the configured model is known."""
+        if (self.config.input_cost_per_mtok is not None
+                or self.config.output_cost_per_mtok is not None):
+            return
+        self.usage.input_cost_per_mtok, self.usage.output_cost_per_mtok =             providers.default_pricing(self.provider, model)
 
     def __exit__(self, *_):
         if self.client is not None:

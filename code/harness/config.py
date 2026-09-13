@@ -23,7 +23,10 @@ FORECAST_DAYS = 90
 SAFETY_WINDOW = "completion"
 MAX_SPENDING_CHANGES = 3
 
-#: Providers publish prices per million tokens; override through the CLI.
+DEFAULT_PROVIDER = "openai"
+
+#: Per-provider list prices live in harness/providers.py; these remain as the
+#: fallback when a run supplies neither a provider default nor a CLI override.
 DEFAULT_INPUT_COST_PER_MTOK = 1.25
 DEFAULT_OUTPUT_COST_PER_MTOK = 10.0
 
@@ -65,6 +68,7 @@ class HarnessConfig:
     audit_log: Path | None = DEFAULT_AUDIT_LOG
     forecast_days: int = FORECAST_DAYS
     safety_window: str = SAFETY_WINDOW
+    provider: str = DEFAULT_PROVIDER
     use_model: bool = True
     explain_with_model: bool = True
     max_tool_calls: int = 12
@@ -72,6 +76,6 @@ class HarnessConfig:
     workers: int = 4
     request_ids: tuple[str, ...] = ()
     include_samples: bool = False
-    input_cost_per_mtok: float = DEFAULT_INPUT_COST_PER_MTOK
-    output_cost_per_mtok: float = DEFAULT_OUTPUT_COST_PER_MTOK
+    input_cost_per_mtok: float | None = None
+    output_cost_per_mtok: float | None = None
     recurrence: RecurrencePolicy = field(default_factory=RecurrencePolicy)

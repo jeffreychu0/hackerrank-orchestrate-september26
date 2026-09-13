@@ -1,6 +1,7 @@
 """Buy or Wait? entry point: run the harness over dataset/requests.csv.
 
     python code/main.py                         # full run, writes output.csv
+    python code/main.py --provider anthropic    # same run through Claude
     python code/main.py --no-model              # deterministic only, no API calls
     python code/main.py --request-id request_07 --dry-run --verbose
 
@@ -11,12 +12,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from openai import APIConnectionError, APIStatusError
-
-from harness.config import (DEFAULT_DATASET, DEFAULT_INPUT_COST_PER_MTOK,
-                            DEFAULT_OUTPUT, DEFAULT_OUTPUT_COST_PER_MTOK,
-                            DEFAULT_OUTPUT_MIRRORS, DEFAULT_USAGE_REPORT,
-                            FORECAST_DAYS, HarnessConfig)
+from harness.config import (DEFAULT_DATASET, DEFAULT_OUTPUT,
+                            DEFAULT_OUTPUT_MIRRORS, DEFAULT_PROVIDER,
+                            DEFAULT_USAGE_REPORT, FORECAST_DAYS, HarnessConfig)
+from harness.providers import PROVIDERS
 from harness.runner import Harness
 
 
@@ -35,6 +34,8 @@ def build_parser():
                         help="Limit the run to these request ids (repeatable)")
     parser.add_argument("--include-samples", action="store_true",
                         help="Also allow sample request ids as targets (input fields only)")
+    parser.add_argument("--provider", choices=PROVIDERS, default=DEFAULT_PROVIDER,
+                        help="Which vendor interprets the messages and images")
     parser.add_argument("--no-model", action="store_true",
                         help="Deterministic run: no evidence interpretation, no API calls")
     parser.add_argument("--explain", choices=("template", "model"), default="template",
@@ -42,10 +43,9 @@ def build_parser():
     parser.add_argument("--forecast-days", type=int, default=FORECAST_DAYS)
     parser.add_argument("--workers", type=int, default=4,
                         help="Parallel requests when the model is in use")
-    parser.add_argument("--input-cost-per-mtok", type=float,
-                        default=DEFAULT_INPUT_COST_PER_MTOK)
-    parser.add_argument("--output-cost-per-mtok", type=float,
-                        default=DEFAULT_OUTPUT_COST_PER_MTOK)
+    parser.add_argument("--input-cost-per-mtok", type=float, default=None,
+                        help="Override the provider list price used in the report")
+    parser.add_argument("--output-cost-per-mtok", type=float, default=None)
     parser.add_argument("--dry-run", action="store_true",
                         help="Print rows without writing output.csv")
     parser.add_argument("--verbose", action="store_true",
@@ -59,7 +59,8 @@ def main(argv=None):
         dataset=args.dataset, output=args.output, usage_report=args.usage_report,
         forecast_days=args.forecast_days, use_model=not args.no_model,
         explain_with_model=(args.explain == "model" and not args.no_model),
-        workers=max(1, args.workers), request_ids=tuple(args.request_id),
+        provider=args.provider, workers=max(1, args.workers),
+        request_ids=tuple(args.request_id),
         include_samples=args.include_samples or bool(args.request_id),
         output_mirrors=() if args.no_mirror else DEFAULT_OUTPUT_MIRRORS,
         input_cost_per_mtok=args.input_cost_per_mtok,
@@ -74,16 +75,13 @@ def main(argv=None):
     try:
         with Harness(config) as harness:
             report = harness.run()
-    except APIStatusError as exc:
-        print("OpenAI HTTP {}: check credentials, model access and quota."
-              .format(exc.status_code), file=sys.stderr)
-        return 1
-    except APIConnectionError:
-        print("Could not reach OpenAI; run with --no-model for a deterministic pass.",
-              file=sys.stderr)
-        return 1
     except (OSError, ValueError, RuntimeError) as exc:
         print("Run failed: {}".format(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:      # provider SDK errors differ per vendor
+        print("{} call failed ({}): check credentials, model access and quota, "
+              "or run with --no-model.".format(args.provider, type(exc).__name__),
+              file=sys.stderr)
         return 1
 
     if args.verbose:

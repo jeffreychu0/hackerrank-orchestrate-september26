@@ -4,8 +4,9 @@ The sample answers are never available to the solution itself; this script reads
 them only to report how closely the deterministic policy and the interpretation
 layer reproduce the published decision style.
 
-    python code/evaluate_samples.py            # deterministic only
-    python code/evaluate_samples.py --model    # with evidence interpretation
+    python code/evaluate_samples.py                            # deterministic only
+    python code/evaluate_samples.py --model                    # with interpretation
+    python code/evaluate_samples.py --model --provider anthropic
 """
 
 import argparse
@@ -13,7 +14,8 @@ import csv
 from decimal import Decimal
 from pathlib import Path
 
-from harness.config import DEFAULT_DATASET, HarnessConfig
+from harness.config import DEFAULT_DATASET, DEFAULT_PROVIDER, HarnessConfig
+from harness.providers import PROVIDERS
 from harness.runner import Harness
 
 FIELDS = ("affordability_status", "recommended_payment_method", "payment_plan",
@@ -25,19 +27,24 @@ def main(argv=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--model", action="store_true", help="Enable evidence interpretation")
+    parser.add_argument("--provider", choices=PROVIDERS, default=DEFAULT_PROVIDER)
+    parser.add_argument("--out", type=Path, default=None,
+                        help="Write the produced rows here instead of the default scratch file")
     parser.add_argument("--workers", type=int, default=5)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
     truth = {row["request_id"]: row for row in
              csv.DictReader((args.dataset / "sample_requests.csv").open(encoding="utf-8-sig"))}
-    scratch = args.dataset.parent / "code" / "evaluation" / "sample_predictions.csv"
+    tag = args.provider if args.model else "deterministic"
+    scratch = args.out or (args.dataset.parent / "code" / "evaluation"
+                           / "sample_predictions_{}.csv".format(tag))
     config = HarnessConfig(
         dataset=args.dataset, output=scratch,
-        usage_report=scratch.with_name("sample_usage_report.md"),
-        audit_log=scratch.with_name("sample_evidence_audit.jsonl"),
+        usage_report=scratch.with_name("sample_usage_{}.md".format(tag)),
+        audit_log=scratch.with_name("sample_audit_{}.jsonl".format(tag)),
         output_mirrors=(), use_model=args.model, explain_with_model=False,
-        include_samples=True,
+        include_samples=True, provider=args.provider,
         workers=args.workers if args.model else 1, request_ids=tuple(truth))
     with Harness(config) as harness:
         report = harness.run()
@@ -73,8 +80,10 @@ def main(argv=None):
                                   total))
     usage = report.usage.totals
     if usage.calls:
-        print("{:34} {} calls, {:,} tokens".format("model usage", usage.calls,
-                                                   usage.total_tokens))
+        print("{:34} {} calls, {:,} tokens, ${:.4f}".format(
+            "model usage", usage.calls, usage.total_tokens,
+            report.usage.cost(usage)))
+        print("{:34} {}".format("models", ", ".join(sorted(report.usage.by_model))))
     for outcome in report.degraded:
         print("warning {}: {}".format(outcome.request_id, "; ".join(outcome.warnings)))
     return 0

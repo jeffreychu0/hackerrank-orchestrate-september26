@@ -134,12 +134,17 @@ def evidence_prompt(bundle, series_list):
     ]
     for series in series_list:
         marker = "" if series.active else "  [already suppressed: {}]".format(series.suppressed_reason)
+        # Label every field. "credit salary ..." reads ambiguously: a model can
+        # reasonably copy "credit_salary" as the category and have the claim
+        # refused for naming a category the user's history does not contain.
         lines.append(
-            "- {} {} every {}d, est {} per occurrence, last {} ({}), {} occurrences, "
-            "descriptions: {}{}".format(
-                series.direction, series.category, series.period_days,
-                series.effective_amount, series.last_date, series.last_event_id,
-                series.occurrences, "; ".join(series.descriptions), marker))
+            "- direction={} category={} {}every {}d, est {} per occurrence, "
+            "last {} ({}), {} occurrences, descriptions: {}{}".format(
+                series.direction, series.category,
+                "stream={} ".format(series.stream) if series.stream else "",
+                series.period_days, series.effective_amount, series.last_date,
+                series.last_event_id, series.occurrences,
+                "; ".join(series.descriptions), marker))
     confirmed = bundle.future_records
     if confirmed:
         lines += ["", "CONFIRMED FUTURE ROWS ALREADY IN THE FORECAST"]
