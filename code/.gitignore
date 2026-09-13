@@ -4,3 +4,8 @@
 .venv/
 __pycache__/
 *.pyc
+evaluation/sample_predictions.csv
+evaluation/sample_usage_report.md
+evaluation/sample_evidence_audit.jsonl
+evaluation/*.dryrun.md
+evaluation/*.dryrun.jsonl

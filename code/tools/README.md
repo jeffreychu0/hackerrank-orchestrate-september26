@@ -1,5 +1,10 @@
 # Request-scoped dataset tools
 
+> These tools back `code/agent.py`, the interactive evidence-exploration agent.
+> Predictions are produced by `code/main.py` and the `harness/` package, which
+> owns the forecast, the plan ranking and the output contract. See
+> [../README.md](../README.md).
+
 The tool layer implements evidence retrieval and deterministic static checks for the workflow in [SAMPLE_ANALYSIS.md](../../docs/SAMPLE_ANALYSIS.md). It is independent of OpenAI: tool definitions use JSON Schema, handlers accept plain arguments, and results contain JSON-compatible data plus optional image bytes.
 
 ## Run the agent

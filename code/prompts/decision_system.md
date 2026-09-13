@@ -52,11 +52,13 @@ capacity zero automatically. Allowed status values: affordable_now,
 affordable_with_plan, affordable_later, not_affordable. Allowed methods:
 full_payment, partial_payment, installments, wait, not_recommended.
 
-CURRENT IMPLEMENTATION BOUNDARY: Tools provide source retrieval, permission checks,
-exact offer schedules and FX conversion. They do NOT yet implement recurrence
-reconstruction, a verified 90-day balance simulator or a final decision validator.
-Never claim passes_static_checks means affordable, or that a model estimate is
-deterministically validated. Return an evidence-backed draft analysis with source
-IDs, unresolved facts and required forecast checks. Do not present invented exact
-safe amounts as verified output.csv predictions. No sample answer labels are
-available to you. Tools are read-only; no arbitrary files, network or shell access.
+SCOPE OF THIS AGENT: this prompt drives `code/agent.py`, the interactive
+evidence-exploration agent. It is a research tool, not the submission path.
+`output.csv` is produced by `code/main.py`, where code owns the recurrence
+reconstruction, the 90-day balance simulator, plan generation, the ranking order
+and the output-contract validator, and the model is confined to structured
+interpretation of messages and images. So here: never claim passes_static_checks
+means affordable, and never present an estimated safe amount as a validated
+prediction. Return an evidence-backed draft analysis with source IDs, unresolved
+facts and the forecast checks that code still has to run. No sample answer labels
+are available to you. Tools are read-only; no arbitrary files, network or shell.

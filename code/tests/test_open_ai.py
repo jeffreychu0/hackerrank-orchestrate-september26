@@ -12,7 +12,7 @@ from unittest.mock import patch
 import httpx
 from openai import OpenAI, AuthenticationError
 
-from main import main
+import prompt_cli
 from open_ai import OpenAIClient, PromptPair, Settings
 
 
@@ -88,9 +88,9 @@ class ClientTests(unittest.TestCase):
             (folder / "chat.txt").write_text("${question}", encoding="utf-8")
             (folder / "vars.json").write_text(json.dumps({"language": "English", "question": "What is 2+2?"}))
             out = io.StringIO()
-            with patch("main.Settings.from_env", return_value=self.settings), \
-                 patch("main.OpenAIClient", return_value=self.client), redirect_stdout(out):
-                status = main(["--system-file", str(folder / "system.txt"),
+            with patch("prompt_cli.Settings.from_env", return_value=self.settings), \
+                 patch("prompt_cli.OpenAIClient", return_value=self.client), redirect_stdout(out):
+                status = prompt_cli.main(["--system-file", str(folder / "system.txt"),
                                "--chat-file", str(folder / "chat.txt"),
                                "--variables-file", str(folder / "vars.json"), "--json"])
             self.assertEqual(status, 0)
@@ -103,9 +103,9 @@ class ClientTests(unittest.TestCase):
         self.status = 401
         self.body = {"error": {"message": "sensitive-server-body", "type": "authentication_error"}}
         err = io.StringIO()
-        with patch("main.Settings.from_env", return_value=self.settings), \
-             patch("main.OpenAIClient", return_value=self.client), redirect_stderr(err):
-            self.assertEqual(main(["--system", "system", "--chat", "chat"]), 1)
+        with patch("prompt_cli.Settings.from_env", return_value=self.settings), \
+             patch("prompt_cli.OpenAIClient", return_value=self.client), redirect_stderr(err):
+            self.assertEqual(prompt_cli.main(["--system", "system", "--chat", "chat"]), 1)
         self.assertIn("401", err.getvalue())
         self.assertNotIn("sensitive-server-body", err.getvalue())
 

@@ -1,1 +1,4 @@
 log.txt
+full_run.log
+*.dryrun.csv
+bash.exe.stackdump
