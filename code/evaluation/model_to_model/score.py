@@ -146,7 +146,7 @@ def detection(results, defects):
     return table, judges
 
 
-def detection_report(results, defects):
+def detection_report(results, defects, *, models=None, source=None):
     """A markdown scorecard for the injected-defect calibration."""
     table, judges = detection(results, defects)
     lines = [
@@ -161,6 +161,12 @@ def detection_report(results, defects):
         "",
         "A verdict of \"equivalent\" counts as a miss - the two readings are "
         "not equivalent.",
+    ]
+    if source:
+        lines += ["", "Damaged readings were derived from the **{}** run."
+                  .format(source)]
+    lines += _models_table(models)
+    lines += [
         "",
         "| Defect | " + " | ".join("{} caught".format(j) for j in judges) + " | Items |",
         "|---|" + "---:|" * (len(judges) + 1),
@@ -204,7 +210,17 @@ def defect_themes(verdicts, providers, top=8):
     return themes
 
 
-def report(verdicts, providers, dataset_summary, *, usage=None,
+def _models_table(models):
+    """Name the exact models, so a scorecard can never be read out of context."""
+    if not models:
+        return []
+    lines = ["", "## Models", "", "| Role | Provider | Model |", "|---|---|---|"]
+    for provider, model in models.items():
+        lines.append("| producer and judge | {} | `{}` |".format(provider, model))
+    return lines
+
+
+def report(verdicts, providers, dataset_summary, *, usage=None, models=None,
            truth_rows=None, rows_by_provider=None):
     """A readable markdown scorecard."""
     first, second = providers
@@ -217,6 +233,9 @@ def report(verdicts, providers, dataset_summary, *, usage=None,
         "order - to each provider for adjudication. Every item is therefore "
         "judged once by a model that produced one of the readings and once by "
         "one that produced the other.",
+    ]
+    lines += _models_table(models)
+    lines += [
         "",
         "## Eval set",
         "",

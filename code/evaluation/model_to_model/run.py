@@ -124,9 +124,10 @@ def main(argv=None):
 
     evidence = {i.request_id: evidence_for(loader, i.request_id, args.dataset)
                 for i in items}
-    verdicts, judge_usage = [], {}
+    verdicts, judge_usage, models = [], {}, {}
     for judge_provider in args.providers:
         client = providers.build_client(judge_provider)
+        models[judge_provider] = providers.describe(client)
         calls = tokens = 0
         cost_in, cost_out = providers.default_pricing(
             judge_provider, providers.describe(client))
@@ -159,7 +160,9 @@ def main(argv=None):
 
     truth = _sample_answers(args.dataset) if args.samples_only else None
     text = score.report(verdicts, args.providers, summary, usage=judge_usage,
-                        truth_rows=truth, rows_by_provider=rows)
+                        models=models, truth_rows=truth, rows_by_provider=rows)
+    _write_context(args.out / "run_context.json", models, summary, judge_usage,
+                   producer_usage, mode="samples" if args.samples_only else "unlabelled")
     report_path = args.out / "scorecard.md"
     report_path.write_text(text, encoding="utf-8")
     _write_verdicts(args.out / "verdicts.jsonl", verdicts)
@@ -185,9 +188,10 @@ def _calibrate(args, audits, loader):
 
     evidence = {c.request_id: evidence_for(loader, c.request_id, args.dataset)
                 for c in cases}
-    results, records, usage = [], [], {}
+    results, records, usage, models = [], [], {}, {}
     for judge_provider in args.providers:
         client = providers.build_client(judge_provider)
+        models[judge_provider] = providers.describe(client)
         cost_in, cost_out = providers.default_pricing(
             judge_provider, providers.describe(client))
         stats = {"calls": 0, "tokens": 0, "cost": 0.0}
@@ -234,7 +238,8 @@ def _calibrate(args, audits, loader):
         usage[judge_provider] = stats
         print("   {} judged {} items".format(judge_provider, stats["calls"]))
 
-    text = score.detection_report(results, perturb.DEFECTS)
+    text = score.detection_report(results, perturb.DEFECTS, models=models,
+                                  source=source)
     text += ("\n## Adjudication cost\n\n"
              "| Judge | Calls | Tokens | Est. cost |\n|---|---:|---:|---:|\n")
     for judge_provider, stats in usage.items():
@@ -242,6 +247,8 @@ def _calibrate(args, audits, loader):
             judge_provider, stats["calls"], stats["tokens"], stats["cost"])
     path = args.out / "calibration.md"
     path.write_text(text, encoding="utf-8")
+    _write_context(args.out / "calibration_context.json", models,
+                   dict(perturb.coverage(cases)), usage, {}, mode="calibration")
     with (args.out / "calibration.jsonl").open("w", encoding="utf-8",
                                                newline="\n") as handle:
         for record in records:
@@ -251,6 +258,19 @@ def _calibrate(args, audits, loader):
     print("calibration: {}".format(path))
     print("total spend this run: ${:.4f}".format(sum(v["cost"] for v in usage.values())))
     return 0
+
+
+def _write_context(path, models, summary, judge_usage, producer_usage, *, mode):
+    """Record exactly what ran, so a report can never misname its own inputs."""
+    from datetime import datetime, timezone
+    Path(path).write_text(json.dumps({
+        "mode": mode,
+        "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "models": models,
+        "summary": summary,
+        "judge_usage": judge_usage,
+        "producer_usage": producer_usage,
+    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def _safe_case(function):

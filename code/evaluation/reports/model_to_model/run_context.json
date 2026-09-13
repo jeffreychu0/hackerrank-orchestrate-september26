@@ -1,0 +1,38 @@
+{
+  "mode": "samples",
+  "generated_utc": "2026-09-13 05:08:14",
+  "models": {
+    "openai": "gpt-5.4",
+    "anthropic": "claude-sonnet-5"
+  },
+  "summary": {
+    "items": 19,
+    "claims_differ": 15,
+    "output_row_differs": 1,
+    "claims_differ_without_output_change": 14
+  },
+  "judge_usage": {
+    "openai": {
+      "calls": 19,
+      "tokens": 45396,
+      "cost": 0.09929625
+    },
+    "anthropic": {
+      "calls": 19,
+      "tokens": 91686,
+      "cost": 0.40932399999999985
+    }
+  },
+  "producer_usage": {
+    "openai": {
+      "calls": 19,
+      "tokens": 49214,
+      "cost": 0.09654375
+    },
+    "anthropic": {
+      "calls": 19,
+      "tokens": 90863,
+      "cost": 0.308358
+    }
+  }
+}

@@ -4,6 +4,15 @@ Each item pairs a real reading against the same reading damaged in one specific 
 
 A verdict of "equivalent" counts as a miss - the two readings are not equivalent.
 
+Damaged readings were derived from the **openai** run.
+
+## Models
+
+| Role | Provider | Model |
+|---|---|---|
+| producer and judge | openai | `gpt-5.4` |
+| producer and judge | anthropic | `claude-sonnet-5` |
+
 | Defect | anthropic caught | openai caught | Items |
 |---|---:|---:|---:|
 | scope_inflation | 3/3 (100%) | 3/3 (100%) | 3 |
@@ -23,5 +32,5 @@ A verdict of "equivalent" counts as a miss - the two readings are not equivalent
 
 | Judge | Calls | Tokens | Est. cost |
 |---|---:|---:|---:|
-| openai | 24 | 56,162 | $0.1127 |
-| anthropic | 24 | 96,619 | $0.3242 |
+| openai | 24 | 56,352 | $0.1134 |
+| anthropic | 24 | 98,029 | $0.3360 |

@@ -211,6 +211,11 @@ Two evaluations, answering different questions.
 | Needs ground truth | yes | no |
 | Costs tokens | only with `--model` | yes, on both stages |
 
+Results for both live in [evaluation/EVALUATION.md](evaluation/EVALUATION.md)
+(identical copy at `docs/EVALUATION.md`), regenerated from the run artifacts with
+`python code/evaluation/build_evaluation_md.py` so the numbers cannot drift from
+the runs they describe.
+
 The second is described in
 [evaluation/model_to_model/README.md](evaluation/model_to_model/README.md): two
 providers read the same evidence independently, then each grades both readings
@@ -259,3 +264,4 @@ python code/smoke_tools.py
 | `code/evaluation/usage_report.md` | Providers, models, calls, tokens, cost (path pinned by the submission contract) |
 | `code/evaluation/reports/evidence_audit.jsonl` | Per request: coverage, accepted and refused claims, unresolved questions, final fields |
 | `code/evaluation/reports/model_to_model/` | Cross-model scorecards and per-item verdicts |
+| `code/evaluation/EVALUATION.md` | Both evaluations, generated from the artifacts |
